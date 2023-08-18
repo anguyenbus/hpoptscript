@@ -925,7 +925,8 @@ def split_train_test_data(
     return X_train, X_test, y_train, y_test, df_labels
 
 
-def perform_parameter_tuning(df_features: pd.DataFrame, df_labels: pd.DataFrame, metric_name: object,                              max_eval_param_tuning: int, explore_dir_params: int, model_names: list = ['randomForest'], parallel_tuning: bool = True) -> Dict[str, Any]:     """
+def perform_parameter_tuning(df_features: pd.DataFrame, df_labels: pd.DataFrame, metric_name: object,                              
+                             max_eval_param_tuning: int, explore_dir_params: int, model_names: list = ['randomForest'], parallel_tuning: bool = True) -> Dict[str, Any]:     """
     Sets up the Hyperopt module and begins the hyperparameter tuning process. Set
     up to work across multiple models and metrics as required.
     Args:
