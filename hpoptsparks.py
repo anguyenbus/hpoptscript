@@ -925,6 +925,51 @@ def split_train_test_data(
     return X_train, X_test, y_train, y_test, df_labels
 
 
+def perform_parameter_tuning(df_features: pd.DataFrame, df_labels: pd.DataFrame, metric_name: object,                              max_eval_param_tuning: int, explore_dir_params: int, model_names: list = ['randomForest'], parallel_tuning: bool = True) -> Dict[str, Any]:     """
+    Sets up the Hyperopt module and begins the hyperparameter tuning process. Set
+    up to work across multiple models and metrics as required.
+    Args:
+        df_features (pd.DataFrame): Dataframe of features for training.
+        df_labels (pd.DataFrame): Dataframe of labels for training.
+        metric_name (object): The sklearn (or other) metric to be used to perform evaluation of the model during hyperparameter tuning.
+        max_eval_param_tuning (int): The maximum number of iterations to perform with Hyperopt.
+        explore_dir_params (int): Explore output directory.
+        model_names (list): any in 'XGBoost','lightGBM','ranfomForest'
+    Returns:
+        best_params (dict): Best params and best model found during hyperparameter tuning.
+"""     
+    # Set up some variables for hyperopt to consume     
+
+    metric_name, MAX_EVALS, do_cv = metric_name, max_eval_param_tuning, True     
+    best_loss, best_params = [], []
+
+    # For each choice of ml model, lets go through the hyperopt process and find the best parameters     
+    for model_name in model_names:                 
+        objopt = HPOpt(df_features, df_labels, model_name, metric_name, do_cv)         
+        trials = SparkTrials() if parallel_tuning else Trials()         
+        # Get the best found parameters         
+        best = fmin(fn=objopt.cross_validate_with_model, space=objopt.space, algo=tpe.suggest, max_evals=MAX_EVALS,                     trials=trials)         
+        best_loss_idx = np.argmin(trials.losses())         
+        best_loss.append(trials.results[best_loss_idx]['loss'])         
+        best_params.append(trials.results[best_loss_idx]['params'])         
+        logger.info(f"Best params: {best_params}")         
+        # best_params.append(best_params)     
+        # # The best ml model will have the best loss result     
+        best_method = np.argmin(best_loss)     
+        # Select that method going forwards, and use the best parameters     
+        ml_method = model_names[best_method]     
+        params = best_params[best_method]     
+        logger.info(f"Best params {params}")     
+        # Setting up a dataframe of best parameters, to be appended and output every week. Probably a way neater     
+        # way to do this, could be re-written     
+        df_parameters = pd.DataFrame.from_dict(best_params[best_method], orient='index', columns=['optimalvalue'])     
+        df_parameters = df_parameters.reset_index(level=0)     
+        df_parameters = df_parameters.rename(columns={'index': 'parameters'})     
+        df_parameters = df_parameters.append({'parameters': 'optimalmethod', 'optimalvalue': ml_method}, ignore_index=True)     
+        df_parameters = df_parameters.applymap(str)     
+
+    return params
+
 # COMMAND ----------
 
 from typing import Any
